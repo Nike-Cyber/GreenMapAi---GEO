@@ -1,0 +1,5 @@
+{
+  "name": "GreenMap",
+  "description": "An interactive web application for users to report and visualize environmental data like tree plantations and pollution hotspots on a map. Features a dashboard, user profiles, and an AI-powered chatbot assistant.",
+  "requestFramePermissions": []
+}
