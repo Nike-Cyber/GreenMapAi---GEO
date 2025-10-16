@@ -1,9 +1,9 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Report, Feedback, FeedbackCategory } from "../types";
 
-// For a "no-build" static deployment, `process.env.API_KEY` will not be available in the browser.
-// This causes the app to crash. The code below prevents the crash by only initializing
-// the AI service if a key is found. AI features will be disabled until you configure the key correctly.
+// Fix: Switched to process.env.API_KEY to align with @google/genai guidelines and resolve the TypeScript error with import.meta.env.
+// The API key must be provided through environment variables.
 const API_KEY = process.env.API_KEY;
 
 let ai: GoogleGenAI | null = null;
@@ -12,7 +12,7 @@ if (API_KEY) {
 } else {
   console.warn(
     "CRITICAL: Gemini API key not found. AI features will be disabled. " +
-    "For this to work on Vercel, you must use a build step (like Vite) to securely embed the key."
+    "Please add API_KEY to your environment variables."
   );
 }
 
