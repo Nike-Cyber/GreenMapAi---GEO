@@ -1,21 +1,26 @@
-
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { Report, Feedback, FeedbackCategory } from "../types";
 
+// For a "no-build" static deployment, `process.env.API_KEY` will not be available in the browser.
+// This causes the app to crash. The code below prevents the crash by only initializing
+// the AI service if a key is found. AI features will be disabled until you configure the key correctly.
 const API_KEY = process.env.API_KEY;
 
-if (!API_KEY) {
-  console.warn("Gemini API key not found. Chatbot and AI Analysis functionality will be limited.");
+let ai: GoogleGenAI | null = null;
+if (API_KEY) {
+  ai = new GoogleGenAI({ apiKey: API_KEY });
+} else {
+  console.warn(
+    "CRITICAL: Gemini API key not found. AI features will be disabled. " +
+    "For this to work on Vercel, you must use a build step (like Vite) to securely embed the key."
+  );
 }
-
-const ai = new GoogleGenAI({ apiKey: API_KEY! });
 
 const chatbotSystemInstruction = `You are "Leafy", a friendly and helpful AI assistant for the GreenMap application. Your goal is to provide concise, positive, and informative answers related to environmental topics, conservation, and how to use the GreenMap app. Keep your responses short and encouraging. If asked about something unrelated, gently steer the conversation back to environmental themes. You can use emojis to make your tone more friendly. 🌱🌍♻️`;
 
 export const getChatbotResponse = async (message: string): Promise<string> => {
-  if (!API_KEY) {
-    return "Hello! I'm Leafy, your eco-assistant. My connection to my AI brain is currently offline, but I'm here to help you navigate GreenMap!";
+  if (!ai) {
+    return "Hello! I'm Leafy, your eco-assistant. My connection to my AI brain is currently offline because the API key is not configured. Please ask the site administrator to fix it!";
   }
   try {
     const response = await ai.models.generateContent({
@@ -35,8 +40,8 @@ export const getChatbotResponse = async (message: string): Promise<string> => {
 };
 
 export const getAiAnalysis = async (reports: Report[]): Promise<string> => {
-    if (!API_KEY) {
-        return "AI Analysis is currently unavailable. Please check the API key configuration.";
+    if (!ai) {
+        return "AI Analysis is currently unavailable. The API key has not been configured correctly for this deployment.";
     }
 
     const analysisPrompt = `
@@ -71,12 +76,11 @@ export const getAiAnalysis = async (reports: Report[]): Promise<string> => {
 };
 
 export const generateAiFeedbackSuggestions = async (existingFeedback: Feedback[]): Promise<{ category: FeedbackCategory; message: string } | null> => {
-  if (!API_KEY) {
+  if (!ai) {
     console.warn("Gemini API key not found. AI suggestions are disabled.");
     return null;
   }
   if (existingFeedback.length === 0) {
-    // Cannot synthesize from nothing, return a default suggestion.
     return {
         category: FeedbackCategory.Feature,
         message: "Since there's no feedback yet, how about adding a 'Community Events' feature where users can organize clean-ups or tree plantings through the app?"
@@ -85,30 +89,15 @@ export const generateAiFeedbackSuggestions = async (existingFeedback: Feedback[]
 
   const prompt = `
     You are an expert product manager for a web app called "GreenMap". The app allows users to report tree plantations and pollution hotspots on a map.
-    
-    You have been given a list of raw user feedback. Your task is to analyze all of it and synthesize it into a single, insightful, and actionable new feedback item. This new item should represent a meta-idea, a solution to a recurring theme, or a logical next step based on the existing user comments.
-    
-    For example, if multiple users mention map issues, you could suggest a "Comprehensive Map Tools Upgrade" feature. If users are requesting social features, you could suggest "Gamification with Badges and Points".
-    
-    Here is the existing user feedback:
-    ${JSON.stringify(existingFeedback.map(f => ({ category: f.category, message: f.message })))}
-    
-    Based on this, generate one new feedback item. The category should be 'Feature Request' if it's a new idea, or 'General Feedback' if it's a summary or meta-comment. The message should be well-written, as if from a power user who has thought deeply about the app.
-    
+    You have been given a list of raw user feedback. Your task is to analyze all of it and synthesize it into a single, insightful, and actionable new feedback item.
     Return the feedback as a single JSON object.
   `;
 
   const responseSchema = {
     type: Type.OBJECT,
     properties: {
-      category: {
-        type: Type.STRING,
-        description: `The category of the feedback. Must be one of: "${FeedbackCategory.Feature}", "${FeedbackCategory.Bug}", or "${FeedbackCategory.General}".`
-      },
-      message: {
-        type: Type.STRING,
-        description: 'The detailed, synthesized feedback message.'
-      }
+      category: { type: Type.STRING, description: `The category of the feedback. Must be one of: "${FeedbackCategory.Feature}", "${FeedbackCategory.Bug}", or "${FeedbackCategory.General}".` },
+      message: { type: Type.STRING, description: 'The detailed, synthesized feedback message.' }
     },
     required: ['category', 'message']
   };
@@ -123,14 +112,9 @@ export const generateAiFeedbackSuggestions = async (existingFeedback: Feedback[]
       },
     });
 
-    const jsonText = response.text.trim();
-    const suggestion = JSON.parse(jsonText);
-    
-    if (suggestion && 
-        suggestion.category && 
-        Object.values(FeedbackCategory).includes(suggestion.category) && 
-        suggestion.message) {
-      return suggestion as { category: FeedbackCategory; message: string };
+    const suggestion = JSON.parse(response.text.trim());
+    if (suggestion && suggestion.category && Object.values(FeedbackCategory).includes(suggestion.category) && suggestion.message) {
+      return suggestion;
     }
     return null;
   } catch (error) {
@@ -140,32 +124,22 @@ export const generateAiFeedbackSuggestions = async (existingFeedback: Feedback[]
 };
 
 export const generateGeneralAiFeedbackSuggestion = async (): Promise<{ category: FeedbackCategory; message: string } | null> => {
-  if (!API_KEY) {
+  if (!ai) {
     console.warn("Gemini API key not found. AI suggestions are disabled.");
     return null;
   }
 
   const prompt = `
     You are an expert product user for a web app called "GreenMap". The app allows users to report tree plantations and pollution hotspots on a map.
-    
-    Your task is to come up with one creative and helpful feedback suggestion for the GreenMap team. This could be a new feature idea, a quality-of-life improvement, or a general suggestion.
-    
-    The feedback should be constructive and well-explained. For example, instead of "add more features", suggest something specific like "It would be great to have a 'Community Events' section where users can organize local clean-ups or tree planting gatherings."
-    
+    Your task is to come up with one creative and helpful feedback suggestion for the GreenMap team.
     Return the feedback as a single JSON object.
   `;
 
   const responseSchema = {
     type: Type.OBJECT,
     properties: {
-      category: {
-        type: Type.STRING,
-        description: `The category of the feedback. Must be one of: "${FeedbackCategory.Feature}", "${FeedbackCategory.Bug}", or "${FeedbackCategory.General}".`
-      },
-      message: {
-        type: Type.STRING,
-        description: 'The detailed, helpful feedback message.'
-      }
+      category: { type: Type.STRING, description: `The category of the feedback. Must be one of: "${FeedbackCategory.Feature}", "${FeedbackCategory.Bug}", or "${FeedbackCategory.General}".` },
+      message: { type: Type.STRING, description: 'The detailed, helpful feedback message.' }
     },
     required: ['category', 'message']
   };
@@ -179,15 +153,10 @@ export const generateGeneralAiFeedbackSuggestion = async (): Promise<{ category:
         responseSchema: responseSchema,
       },
     });
-
-    const jsonText = response.text.trim();
-    const suggestion = JSON.parse(jsonText);
     
-    if (suggestion && 
-        suggestion.category && 
-        Object.values(FeedbackCategory).includes(suggestion.category) && 
-        suggestion.message) {
-      return suggestion as { category: FeedbackCategory; message: string };
+    const suggestion = JSON.parse(response.text.trim());
+    if (suggestion && suggestion.category && Object.values(FeedbackCategory).includes(suggestion.category) && suggestion.message) {
+      return suggestion;
     }
     return null;
   } catch (error) {

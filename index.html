@@ -5,10 +5,15 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GreenMap - Mapping a Greener Future</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
       crossorigin=""/>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS loaded via CDN for a no-build setup -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
         darkMode: 'class',
@@ -20,7 +25,6 @@
               'light-green': '#A3CC3A',
               'cream': '#F5F5DC',
               'earth-red': '#B94A48',
-              // Dark theme colors
               'dark-bg': '#1a202c',
               'dark-card': '#2d3748',
               'dark-text': '#e2e8f0',
@@ -47,25 +51,27 @@
         }
       }
     </script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script type="importmap">
+    
+    <script type="importmap">
 {
   "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.24.0",
+    "react-icons/": "https://aistudiocdn.com/react-icons@^5.5.0/",
+    "react-leaflet": "https://aistudiocdn.com/react-leaflet@^5.0.0",
     "leaflet": "https://aistudiocdn.com/leaflet@^1.9.4",
     "recharts": "https://aistudiocdn.com/recharts@^3.2.1",
-    "react-leaflet": "https://aistudiocdn.com/react-leaflet@^5.0.0",
-    "react-icons/": "https://aistudiocdn.com/react-icons@^5.5.0/"
+    "vite": "https://aistudiocdn.com/vite@^7.1.9",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.0.4"
   }
 }
 </script>
-</head>
+  </head>
   <body class="bg-cream text-forest-green dark:bg-dark-bg dark:text-dark-text">
     <div id="root"></div>
+    <!-- Point back to the root index.tsx -->
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
