@@ -6,7 +6,7 @@ import Card from './ui/Card';
 import Button from './ui/Button';
 import Modal from './ui/Modal';
 import Input from './ui/Input';
-import { FaPlus, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaSync } from 'react-icons/fa';
 
 const NewsCard: React.FC<{ article: NewsArticle; isAdmin: boolean; onDeleteClick: (article: NewsArticle) => void; }> = ({ article, isAdmin, onDeleteClick }) => (
     <Card className="flex flex-col overflow-hidden h-full transition-transform transform hover:scale-105 hover:shadow-xl relative group">
@@ -74,10 +74,22 @@ interface NewsViewProps {
 }
 
 const NewsView: React.FC<NewsViewProps> = ({ isAdmin }) => {
-    const { articles, isLoading, addNews, deleteNews } = useNews();
+    const { articles, isLoading, addNews, deleteNews, fetchAiNews, error } = useNews();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [articleToDelete, setArticleToDelete] = useState<NewsArticle | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isFetchingAiNews, setIsFetchingAiNews] = useState(false);
+    
+    const handleFetchAiNews = async () => {
+        setIsFetchingAiNews(true);
+        try {
+            await fetchAiNews();
+        } catch (e) {
+            // Error is handled in the hook, but we catch here to ensure loading state is reset
+            console.error(e);
+        }
+        setIsFetchingAiNews(false);
+    };
 
     const handleAddNews = async (articleData: Omit<NewsArticle, 'id' | 'publishedAt'>) => {
         try {
@@ -116,11 +128,25 @@ const NewsView: React.FC<NewsViewProps> = ({ isAdmin }) => {
                     <h1 className="text-4xl font-bold text-forest-green dark:text-dark-text">Environmental News</h1>
                     <p className="text-lg text-lime-green dark:text-light-green mt-1">Stay informed on the latest eco-friendly updates.</p>
                 </div>
-                <Button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 self-start sm:self-center">
-                    <FaPlus />
-                    <span>Add News Article</span>
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-2 self-start sm:self-center">
+                    <Button onClick={handleFetchAiNews} disabled={isLoading || isFetchingAiNews} variant="secondary" className="flex items-center gap-2">
+                        <FaSync className={isFetchingAiNews ? 'animate-spin' : ''} />
+                        <span>{isFetchingAiNews ? 'Fetching...' : 'Fetch Latest with AI'}</span>
+                    </Button>
+                    {isAdmin && (
+                        <Button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2">
+                            <FaPlus />
+                            <span>Add News Article</span>
+                        </Button>
+                    )}
+                </div>
             </header>
+            
+            {error && (
+                <Card className="border-2 border-earth-red bg-earth-red/10">
+                    <p className="text-earth-red font-semibold text-center">{error}</p>
+                </Card>
+            )}
 
             {isLoading ? (
                 <div className="text-center py-10">

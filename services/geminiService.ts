@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Report, Feedback, FeedbackCategory } from "../types";
+import { Report, Feedback, FeedbackCategory, NewsArticle } from "../types";
 
 // Fix: Switched to process.env.API_KEY to align with @google/genai guidelines and resolve the TypeScript error with import.meta.env.
 // The API key must be provided through environment variables.
@@ -162,5 +162,70 @@ export const generateGeneralAiFeedbackSuggestion = async (): Promise<{ category:
   } catch (error) {
     console.error("Error generating general AI feedback suggestion:", error);
     return null;
+  }
+};
+
+export const getAiNewsArticles = async (): Promise<Omit<NewsArticle, 'id'>[]> => {
+  if (!ai) {
+    throw new Error("Gemini API key not found. AI features are disabled.");
+  }
+  
+  const prompt = `
+    Fetch the top 4 latest and most important environmental news articles from the web.
+    For each article, provide the following information in this exact format, with each field on a new line:
+
+    TITLE: [Article Title]
+    SOURCE: [News Source]
+    URL: [Article URL]
+    PUBLISHED_AT: [Publication date in YYYY-MM-DD format]
+    SUMMARY: [A concise one or two-sentence summary of the article.]
+    IMAGE_URL: [A relevant, publicly accessible, high-quality image URL for the article.]
+
+    Separate each article with "---".
+    Do not include any other text or introductory phrases in your response.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        temperature: 0.3,
+      },
+    });
+
+    const responseText = response.text;
+    const articles: Omit<NewsArticle, 'id'>[] = [];
+    const articlesText = responseText.split('---').filter(t => t.trim());
+
+    for (const articleText of articlesText) {
+        const lines = articleText.trim().split('\n');
+        const articleData: Partial<NewsArticle> = {};
+        for (const line of lines) {
+            if (line.startsWith('TITLE:')) articleData.title = line.substring(7).trim();
+            else if (line.startsWith('SOURCE:')) articleData.source = line.substring(8).trim();
+            else if (line.startsWith('URL:')) articleData.url = line.substring(5).trim();
+            else if (line.startsWith('PUBLISHED_AT:')) articleData.publishedAt = line.substring(14).trim();
+            else if (line.startsWith('SUMMARY:')) articleData.summary = line.substring(9).trim();
+            else if (line.startsWith('IMAGE_URL:')) articleData.imageUrl = line.substring(11).trim();
+        }
+
+        if (articleData.title && articleData.source && articleData.url && articleData.summary && articleData.imageUrl) {
+            articles.push({
+                title: articleData.title,
+                source: articleData.source,
+                publishedAt: articleData.publishedAt || new Date().toISOString().split('T')[0], // Fallback date
+                summary: articleData.summary,
+                imageUrl: articleData.imageUrl,
+                url: articleData.url,
+            });
+        }
+    }
+    return articles;
+
+  } catch (error) {
+    console.error("Error fetching AI news from Gemini API:", error);
+    throw new Error("An error occurred while fetching news from the AI. Please try again later.");
   }
 };

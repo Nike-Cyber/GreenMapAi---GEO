@@ -75,3 +75,20 @@ export const deleteNews = (newsId: number): Promise<void> => {
     }, 500);
   });
 };
+
+export const replaceNews = (articlesData: Omit<NewsArticle, 'id'>[]): Promise<NewsArticle[]> => {
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            mockNews.length = 0; // Clear the array
+            let idCounter = 0;
+            for (const articleData of articlesData) {
+                const newArticle: NewsArticle = {
+                    ...articleData,
+                    id: ++idCounter,
+                };
+                mockNews.push(newArticle);
+            }
+            resolve([...mockNews].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()));
+        }, 500);
+    });
+};
