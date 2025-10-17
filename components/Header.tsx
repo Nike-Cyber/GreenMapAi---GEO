@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { View } from '../App';
-import { FaMap, FaChartBar, FaListAlt, FaNewspaper, FaBrain, FaUser, FaUsers, FaSun, FaMoon, FaCommentDots, FaBullhorn } from 'react-icons/fa';
+import { FaMap, FaChartBar, FaListAlt, FaNewspaper, FaBrain, FaUser, FaUsers, FaSun, FaMoon, FaRobot, FaBullhorn } from 'react-icons/fa';
 
 interface HeaderProps {
   currentView: View;
@@ -25,7 +25,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView, onLogout, 
     { view: View.REPORTS, label: 'Reports', icon: <FaListAlt /> },
     { view: View.NEWS, label: 'News', icon: <FaNewspaper /> },
     { view: View.AI_ANALYSIS, label: 'AI Analysis', icon: <FaBrain /> },
-    { view: View.CHATBOT, label: 'Chatbot', icon: <FaCommentDots /> },
+    { view: View.CHATBOT, label: 'Chatbot', icon: <FaRobot /> },
     { view: View.FEEDBACK, label: 'Feedback', icon: <FaBullhorn /> },
     { view: View.PROFILE, label: 'Profile', icon: <FaUser /> },
     { view: View.ABOUT_US, label: 'About Us', icon: <FaUsers /> },
