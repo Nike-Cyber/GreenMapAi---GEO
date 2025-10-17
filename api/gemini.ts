@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Report, Feedback, FeedbackCategory, NewsArticle, ChatMessage } from '../types';
 
@@ -62,7 +63,7 @@ export default async function handler(req: any, res: any) {
                     5.  *Actionable Suggestions:* Based on the data, suggest 2-3 simple actions for the GreenMap community (e.g., "Focus cleanup efforts near Oakland Estuary," or "Organize a tree planting event in the most reported barren area.").
 
                     Here is the data (in JSON format):
-                    ${JSON.stringify(reports.map(r => ({type: r.type, location: r.location, description: r.description, date: (r.reportedAt as unknown as string).substring(0, 10)})), null, 2)}
+                    ${JSON.stringify(reports.map(r => ({type: r.type, location: r.location, description: r.description, date: new Date(r.reportedAt).toISOString().substring(0, 10)})), null, 2)}
                 `;
 
                 const response = await ai.models.generateContent({
