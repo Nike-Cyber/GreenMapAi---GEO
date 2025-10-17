@@ -74,7 +74,7 @@ interface NewsViewProps {
 }
 
 const NewsView: React.FC<NewsViewProps> = ({ isAdmin }) => {
-    const { articles, isLoading, addNews, deleteNews, fetchAiNews, error } = useNews();
+    const { articles, isLoading, addNews, deleteNews, fetchAiNews } = useNews();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [articleToDelete, setArticleToDelete] = useState<NewsArticle | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -82,12 +82,7 @@ const NewsView: React.FC<NewsViewProps> = ({ isAdmin }) => {
     
     const handleFetchAiNews = async () => {
         setIsFetchingAiNews(true);
-        try {
-            await fetchAiNews();
-        } catch (e) {
-            // Error is handled in the hook, but we catch here to ensure loading state is reset
-            console.error(e);
-        }
+        await fetchAiNews();
         setIsFetchingAiNews(false);
     };
 
@@ -141,12 +136,6 @@ const NewsView: React.FC<NewsViewProps> = ({ isAdmin }) => {
                     )}
                 </div>
             </header>
-            
-            {error && (
-                <Card className="border-2 border-earth-red bg-earth-red/10">
-                    <p className="text-earth-red font-semibold text-center">{error}</p>
-                </Card>
-            )}
 
             {isLoading ? (
                 <div className="text-center py-10">

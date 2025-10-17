@@ -8,7 +8,7 @@ async function callApi(task: string, payload: any) {
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ task, payload }),
+        body: JSON.stringify({ task, payload }), // API key is no longer sent from the client
     });
 
     // For non-streaming JSON responses, check for errors and parse the message.

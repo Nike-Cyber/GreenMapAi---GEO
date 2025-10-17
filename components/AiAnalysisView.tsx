@@ -4,22 +4,22 @@ import { getAiAnalysis } from '../services/geminiService';
 import Card from './ui/Card';
 import Button from './ui/Button';
 import { FaBrain } from 'react-icons/fa';
+import { useError } from '../contexts/ErrorContext';
 
 const AiAnalysisView: React.FC = () => {
     const { reports } = useReports();
     const [analysis, setAnalysis] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const { showError } = useError();
 
     const handleGenerateAnalysis = async () => {
         setIsLoading(true);
-        setError(null);
         setAnalysis('');
         try {
             const result = await getAiAnalysis(reports);
             setAnalysis(result);
         } catch (err) {
-            setError('Failed to generate AI analysis. Please try again later.');
+            showError('Failed to generate AI analysis. The AI may be busy or an error occurred.');
             console.error(err);
         } finally {
             setIsLoading(false);
@@ -56,12 +56,6 @@ const AiAnalysisView: React.FC = () => {
                         <p className="mt-4 text-lg font-semibold text-forest-green dark:text-dark-text">The AI is thinking...</p>
                     </div>
                 </div>
-            )}
-
-            {error && (
-                <Card className="border-2 border-earth-red">
-                    <p className="text-earth-red font-semibold">{error}</p>
-                </Card>
             )}
 
             {analysis && (

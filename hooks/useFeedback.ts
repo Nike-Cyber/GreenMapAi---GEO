@@ -7,25 +7,25 @@ import {
     deleteFeedback as postDeleteFeedback,
     toggleFeedbackImportance as postToggleImportance,
 } from '../services/feedbackService';
+import { useError } from '../contexts/ErrorContext';
 
 export const useFeedback = () => {
   const [feedbackList, setFeedbackList] = useState<Feedback[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const { showError } = useError();
 
   const loadFeedback = useCallback(async () => {
     try {
       setIsLoading(true);
-      setError(null);
       const fetchedFeedback = await fetchFeedback();
       setFeedbackList(fetchedFeedback);
     } catch (err) {
-      setError('Failed to fetch feedback.');
+      showError('Failed to fetch feedback.');
       console.error(err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [showError]);
 
   useEffect(() => {
     loadFeedback();
@@ -36,21 +36,21 @@ export const useFeedback = () => {
       const newFeedback = await postFeedback(feedbackData);
       setFeedbackList(prevFeedback => [newFeedback, ...prevFeedback]);
     } catch (err) {
-      setError('Failed to add feedback.');
+      showError('Failed to add feedback.');
       console.error(err);
     }
-  }, []);
+  }, [showError]);
   
   const deleteFeedback = useCallback(async (feedbackId: number) => {
     try {
       await postDeleteFeedback(feedbackId);
       setFeedbackList(prevFeedback => prevFeedback.filter(f => f.id !== feedbackId));
     } catch (err) {
-      setError('Failed to delete feedback.');
+      showError('Failed to delete feedback.');
       console.error(err);
       throw err;
     }
-  }, []);
+  }, [showError]);
 
   const toggleFeedbackImportance = useCallback(async (feedbackId: number) => {
     try {
@@ -59,11 +59,11 @@ export const useFeedback = () => {
         prevList.map(item => item.id === feedbackId ? updatedFeedback : item)
       );
     } catch (err) {
-       setError('Failed to update feedback importance.');
+       showError('Failed to update feedback importance.');
        console.error(err);
        throw err;
     }
-  }, []);
+  }, [showError]);
   
-  return { feedbackList, isLoading, error, addFeedback, deleteFeedback, toggleFeedbackImportance };
+  return { feedbackList, isLoading, addFeedback, deleteFeedback, toggleFeedbackImportance };
 };
