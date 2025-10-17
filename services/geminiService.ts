@@ -1,12 +1,30 @@
-
-import { GoogleGenAI, Type } from "@google/genai";
 import { Report, Feedback, FeedbackCategory, NewsArticle, ChatMessage } from "../types";
 
-// Per user request to make the app work on deployment and disregard security,
-// the API key is hardcoded directly in the client-side code.
-// This is NOT recommended for production applications.
-const API_KEY = "AIzaSyDbtfQcsPNucoeTcXibPH6BRh2eUagrch4";
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+// This is a centralized function to communicate with our backend API proxy.
+// It simplifies making requests and handling errors.
+async function callApi(task: string, payload: any) {
+    const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ task, payload }),
+    });
+
+    // For non-streaming JSON responses, check for errors and parse the message.
+    if (!response.ok && response.headers.get('Content-Type')?.includes('application/json')) {
+        const errorData = await response.json().catch(() => ({ error: `API Error: ${response.statusText}` }));
+        throw new Error(errorData.error || `An unknown API error occurred.`);
+    }
+    
+    // For streaming or other non-JSON errors, throw a generic error.
+    if (!response.ok) {
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    }
+
+    return response;
+}
+
 
 export const getChatbotResponse = async (
     message: string, 
@@ -16,31 +34,23 @@ export const getChatbotResponse = async (
     onError: (error: Error) => void
 ): Promise<void> => {
     try {
-        const contents = [
-            ...history.map(msg => ({
-                role: msg.sender === 'user' ? 'user' : 'model',
-                parts: [{ text: msg.text }]
-            })),
-            { role: 'user', parts: [{ text: message }] }
-        ];
+        const response = await callApi('getChatbotResponse', { message, history });
+        
+        const reader = response.body?.getReader();
+        if (!reader) {
+            throw new Error('Failed to get response body reader.');
+        }
 
-        const responseStream = await ai.models.generateContentStream({
-            model: "gemini-2.5-flash",
-            contents: contents,
-            config: {
-                systemInstruction: "You are GreenBot, a helpful and friendly AI assistant for the GreenMap application. GreenMap is a tool for users to report and visualize environmental data like tree plantations and pollution hotspots. Your goal is to answer user questions about environmental topics, provide information about GreenMap's features, and encourage community participation in making the world greener. Keep your responses concise, positive, and helpful.",
-                temperature: 0.7,
-                topP: 0.95,
-            },
-        });
-
-        for await (const chunk of responseStream) {
-            if (chunk.text) {
-                onChunk(chunk.text);
+        const decoder = new TextDecoder();
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+                break;
             }
+            onChunk(decoder.decode(value, { stream: true }));
         }
         onComplete();
-
     } catch (error) {
         console.error("Chatbot streaming error:", error);
         onError(error as Error);
@@ -49,66 +59,21 @@ export const getChatbotResponse = async (
 
 export const getAiAnalysis = async (reports: Report[]): Promise<string> => {
     try {
-         const analysisPrompt = `
-            As an expert environmental data analyst for GreenMap, analyze the following user-submitted report data.
-            Provide a concise, insightful summary in Markdown format.
-
-            Your analysis should include:
-            1.  *Overall Summary:* A brief overview of the total reports, highlighting the ratio of tree plantations to pollution hotspots.
-            2.  *Key Trends:* Identify any emerging patterns. Are there clusters of pollution reports in specific areas? Is there a surge in tree planting activities during certain times?
-            3.  *Areas of Concern:* Point out the most critical pollution hotspots based on user descriptions.
-            4.  *Positive Highlights:* Celebrate the most significant tree plantation efforts.
-            5.  *Actionable Suggestions:* Based on the data, suggest 2-3 simple actions for the GreenMap community (e.g., "Focus cleanup efforts near Oakland Estuary," or "Organize a tree planting event in the most reported barren area.").
-
-            Here is the data (in JSON format):
-            ${JSON.stringify(reports.map(r => ({type: r.type, location: r.location, description: r.description, date: r.reportedAt.toISOString().substring(0, 10)})), null, 2)}
-        `;
-
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-pro",
-            contents: analysisPrompt,
-             config: {
-                temperature: 0.5,
-                topP: 0.95,
-            },
-        });
-        return response.text;
+        const response = await callApi('getAiAnalysis', { reports });
+        const data = await response.json();
+        return data.result;
     } catch (error) {
         console.error("Error generating AI analysis:", error);
-        return "An error occurred while generating the analysis. It seems my circuits are a bit tangled. Please try again later.";
+        // Let the view component handle the specific error message
+        throw error;
     }
 };
 
-export const generateAiFeedbackSuggestions = async (existingFeedback: Feedback[]): Promise<{ category: FeedbackCategory; message: string } | null> => {
+export const generateAiFeedbackSuggestions = async (existingFeedback: Feedback[]): Promise<{ category: FeedbackCategory; message:string } | null> => {
   try {
-    if (existingFeedback.length === 0) {
-        // Simple client-side fallback if no feedback exists
-        return {
-            category: FeedbackCategory.Feature,
-            message: "Since there's no feedback yet, how about adding a 'Community Events' feature where users can organize clean-ups or tree plantings through the app?"
-        };
-    }
-
-    const prompt = `
-        You are an expert product manager for a web app called "GreenMap". The app allows users to report tree plantations and pollution hotspots on a map.
-        You have been given a list of raw user feedback. Your task is to analyze all of it and synthesize it into a single, insightful, and actionable new feedback item.
-        Return the feedback as a single JSON object.
-    `;
-    const responseSchema = {
-        type: Type.OBJECT,
-        properties: {
-        category: { type: Type.STRING, description: `The category of the feedback. Must be one of: "${FeedbackCategory.Feature}", "${FeedbackCategory.Bug}", or "${FeedbackCategory.General}".` },
-        message: { type: Type.STRING, description: 'The detailed, synthesized feedback message.' }
-        },
-        required: ['category', 'message']
-    };
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: { responseMimeType: "application/json", responseSchema },
-    });
-    const parsedSuggestion = JSON.parse(response.text.trim());
-    return (parsedSuggestion && parsedSuggestion.category && Object.values(FeedbackCategory).includes(parsedSuggestion.category) && parsedSuggestion.message) ? parsedSuggestion : null;
+    const response = await callApi('generateAiFeedbackSuggestions', { existingFeedback });
+    const data = await response.json();
+    return data.result;
   } catch (error) {
     console.error("Error generating AI feedback suggestions:", error);
     return null;
@@ -117,26 +82,9 @@ export const generateAiFeedbackSuggestions = async (existingFeedback: Feedback[]
 
 export const generateGeneralAiFeedbackSuggestion = async (): Promise<{ category: FeedbackCategory; message: string } | null> => {
   try {
-     const prompt = `
-        You are an expert product user for a web app called "GreenMap". The app allows users to report tree plantations and pollution hotspots on a map.
-        Your task is to come up with one creative and helpful feedback suggestion for the GreenMap team.
-        Return the feedback as a single JSON object.
-    `;
-    const responseSchema = {
-        type: Type.OBJECT,
-        properties: {
-            category: { type: Type.STRING, description: `The category of the feedback. Must be one of: "${FeedbackCategory.Feature}", "${FeedbackCategory.Bug}", or "${FeedbackCategory.General}".` },
-            message: { type: Type.STRING, description: 'The detailed, helpful feedback message.' }
-        },
-        required: ['category', 'message']
-    };
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: { responseMimeType: "application/json", responseSchema },
-    });
-    const suggestion = JSON.parse(response.text.trim());
-    return (suggestion && suggestion.category && Object.values(FeedbackCategory).includes(suggestion.category) && suggestion.message) ? suggestion : null;
+    const response = await callApi('generateGeneralAiFeedbackSuggestion', {});
+    const data = await response.json();
+    return data.result;
   } catch (error) {
     console.error("Error generating general AI feedback suggestion:", error);
     return null;
@@ -145,55 +93,9 @@ export const generateGeneralAiFeedbackSuggestion = async (): Promise<{ category:
 
 export const getAiNewsArticles = async (): Promise<Omit<NewsArticle, 'id'>[]> => {
   try {
-    const prompt = `
-        Fetch the top 4 latest and most important environmental news articles from the web.
-        For each article, provide the following information in this exact format, with each field on a new line:
-
-        TITLE: [Article Title]
-        SOURCE: [News Source]
-        URL: [Article URL]
-        PUBLISHED_AT: [Publication date in YYYY-MM-DD format]
-        SUMMARY: [A concise one or two-sentence summary of the article.]
-        IMAGE_URL: [A relevant, publicly accessible, high-quality image URL for the article.]
-
-        Separate each article with "---".
-        Do not include any other text or introductory phrases in your response.
-    `;
-
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: { tools: [{ googleSearch: {} }], temperature: 0.3 },
-    });
-
-    const responseText = response.text;
-    const articles: Omit<NewsArticle, 'id'>[] = [];
-    const articlesText = responseText.split('---').filter(t => t.trim());
-
-    for (const articleText of articlesText) {
-        const lines = articleText.trim().split('\n');
-        const articleData: Partial<NewsArticle> = {};
-        for (const line of lines) {
-            if (line.startsWith('TITLE:')) articleData.title = line.substring(7).trim();
-            else if (line.startsWith('SOURCE:')) articleData.source = line.substring(8).trim();
-            else if (line.startsWith('URL:')) articleData.url = line.substring(5).trim();
-            else if (line.startsWith('PUBLISHED_AT:')) articleData.publishedAt = line.substring(14).trim();
-            else if (line.startsWith('SUMMARY:')) articleData.summary = line.substring(9).trim();
-            else if (line.startsWith('IMAGE_URL:')) articleData.imageUrl = line.substring(11).trim();
-        }
-
-        if (articleData.title && articleData.source && articleData.url && articleData.summary && articleData.imageUrl) {
-            articles.push({
-                title: articleData.title,
-                source: articleData.source,
-                publishedAt: articleData.publishedAt || new Date().toISOString().split('T')[0],
-                summary: articleData.summary,
-                imageUrl: articleData.imageUrl,
-                url: articleData.url,
-            });
-        }
-    }
-    return articles;
+    const response = await callApi('getAiNewsArticles', {});
+    const data = await response.json();
+    return data.result;
   } catch (error) {
     console.error("Error fetching AI news articles:", error);
     // The error will be caught by the calling hook (useNews) and displayed in the UI.
