@@ -1,6 +1,5 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
-import { Report, Feedback, FeedbackCategory, NewsArticle, ChatMessage } from '../types';
+import { Report, Feedback, FeedbackCategory, ChatMessage } from '../types';
 
 // The API key is sourced from the environment variables,
 // ensuring a secure and standardized deployment process.
@@ -80,7 +79,7 @@ export default async function handler(req: any, res: any) {
                         temperature: 0.5,
                     },
                 });
-                res.status(200).json({ result: response.text });
+                res.status(200).json({ result: response.text ?? '' });
                 break;
             }
             
@@ -118,7 +117,11 @@ export default async function handler(req: any, res: any) {
                     config: { responseMimeType: "application/json", responseSchema },
                 });
                 
-                res.status(200).json({ result: JSON.parse(response.text.trim()) });
+                const text = response.text;
+                if (!text) {
+                    throw new Error("AI returned an empty response for feedback synthesis.");
+                }
+                res.status(200).json({ result: JSON.parse(text.trim()) });
                 break;
             }
 
@@ -142,7 +145,12 @@ export default async function handler(req: any, res: any) {
                     contents: prompt,
                     config: { responseMimeType: "application/json", responseSchema },
                 });
-                res.status(200).json({ result: JSON.parse(response.text.trim()) });
+
+                const text = response.text;
+                if (!text) {
+                    throw new Error("AI returned an empty response for general feedback suggestion.");
+                }
+                res.status(200).json({ result: JSON.parse(text.trim()) });
                 break;
             }
 
@@ -179,7 +187,11 @@ export default async function handler(req: any, res: any) {
                     },
                 });
 
-                const articles = JSON.parse(response.text.trim());
+                const text = response.text;
+                if (!text) {
+                    throw new Error("AI returned an empty response for news articles.");
+                }
+                const articles = JSON.parse(text.trim());
                 res.status(200).json({ result: articles });
                 break;
             }
